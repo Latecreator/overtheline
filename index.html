@@ -1,0 +1,2279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rugby Union Season Sim</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #22263a;
+  --border: #2a2e3f;
+  --text: #e4e6ed;
+  --muted: #8b8fa3;
+  --try: #34d399;
+  --pen: #f59e0b;
+  --turn: #f87171;
+  --scrum: #60a5fa;
+  --kick: #f59e0b;
+  --diff: #c084fc;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* HEADER */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; }
+header h1 span { color: var(--try); }
+
+select, .btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn:hover { background: #2c3050; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.btn-primary { background: #163d29; border-color: var(--try); color: var(--try); font-weight: 600; }
+.btn-primary:hover { background: #1e5236; }
+
+.round-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mode-toggle {
+  display: flex;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mode-toggle button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.mode-toggle button.active {
+  background: var(--try);
+  color: #0a1a10;
+  font-weight: 700;
+}
+
+/* LAYOUT */
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+}
+
+@media (max-width: 860px) { .app { grid-template-columns: 1fr; } }
+
+.main-col { display: flex; flex-direction: column; gap: 16px; }
+.side-col { display: flex; flex-direction: column; gap: 16px; }
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-header .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--try);
+  flex-shrink: 0;
+}
+
+/* TEAMS GRID */
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.team-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  border-top: 3px solid var(--team-accent, #34d399);
+}
+
+.team-card .name { font-weight: 700; font-size: 13px; margin-bottom: 6px; line-height: 1.2; }
+.stat-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.stat-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.pill-atk { background: #1a3326; color: var(--try); }
+.pill-def { background: #1a1a3a; color: var(--scrum); }
+.pill-kick { background: #2d2207; color: var(--kick); }
+
+/* HIDDEN */
+.hidden { display: none !important; }
+
+/* MANUAL PANEL */
+.manual-panel { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+
+.match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.match-label { font-weight: 600; }
+.phase-label { color: var(--diff); font-weight: 700; }
+
+/* SCOREBOARD */
+.scoreboard {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sb-team { flex: 1; }
+.sb-team.home { text-align: left; }
+.sb-team.away { text-align: right; }
+.sb-team .team-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; line-height: 1.2; }
+.sb-team .score { font-size: 34px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
+.sb-team .tries-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.sb-center { text-align: center; flex-shrink: 0; }
+.sb-center .vs { font-size: 12px; color: var(--muted); font-weight: 600; }
+.sb-center .possession { font-size: 10px; color: var(--pen); margin-top: 4px; font-weight: 600; white-space: nowrap; }
+
+/* DICE */
+.dice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.die-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+.die-box {
+  width: 60px; height: 60px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  background: var(--surface2);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+
+.die-box.atk { border-color: var(--try); color: var(--try); }
+.die-box.def { border-color: var(--turn); color: var(--turn); }
+.die-box.kick-die { border-color: var(--kick); color: var(--kick); }
+.die-box.diff-box { border-color: var(--diff); color: var(--diff); width: 52px; height: 52px; font-size: 17px; }
+
+.die-label { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.3; }
+.die-formula { font-size: 11px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.die-formula .hi { color: var(--text); font-weight: 600; }
+
+.dice-separator { color: var(--muted); font-weight: 700; font-size: 12px; flex-shrink: 0; margin-top: 20px; }
+
+.diff-group { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; margin-top: 4px; }
+
+@keyframes diceShake {
+  0%   { transform: scale(1.08) rotate(-1.5deg); }
+  50%  { transform: scale(0.94) rotate(1.5deg); }
+  100% { transform: scale(1.08) rotate(-1.5deg); }
+}
+
+.die-box.rolling { animation: diceShake 0.08s ease-in-out infinite; }
+
+/* OUTCOME TABLE */
+.outcome-table {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.outcome-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.outcome-row:last-child { border-bottom: none; }
+
+.outcome-row.match {
+  background: #1e2235;
+  border-left: 3px solid var(--diff);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.outcome-diff { font-size: 11px; min-width: 60px; font-variant-numeric: tabular-nums; }
+.outcome-icon { font-size: 13px; flex-shrink: 0; }
+.outcome-name { flex: 1; }
+
+/* KICK SECTION */
+.kick-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kick);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kick-row-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.kick-table { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; flex: 1; }
+
+.kick-row-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.kick-row-item:last-child { border-bottom: none; }
+.kick-row-item.match-made { background: #0d2416; border-left: 3px solid var(--try); color: var(--try); font-weight: 700; }
+.kick-row-item.match-miss { background: #2d1010; border-left: 3px solid var(--turn); color: var(--turn); font-weight: 700; }
+
+/* FLAVOUR */
+.flavour-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.flavour-box .d10-label { color: var(--diff); font-size: 11px; margin-bottom: 4px; font-weight: 600; }
+.flavour-box .flavour-text { font-style: italic; color: var(--text); line-height: 1.5; }
+.flavour-wrapper { display: flex; flex-direction: column; gap: 8px; }
+
+/* CONTROLS */
+.controls-section { display: flex; justify-content: center; }
+
+.main-action-btn {
+  background: var(--surface2);
+  border: 2px solid var(--try);
+  color: var(--try);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  min-width: 180px;
+  text-align: center;
+}
+
+.main-action-btn:hover { background: #163d29; }
+.main-action-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.main-action-btn.kick-state { border-color: var(--kick); color: var(--kick); }
+.main-action-btn.kick-state:hover { background: #2d2207; }
+.main-action-btn.advance-state { border-color: var(--scrum); color: var(--scrum); }
+.main-action-btn.advance-state:hover { background: #0e1e36; }
+.main-action-btn.done-state { border-color: var(--diff); color: var(--diff); }
+.main-action-btn.done-state:hover { background: #1e1230; }
+
+/* LEAGUE TABLE */
+.table-wrap { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+th {
+  padding: 8px 6px;
+  text-align: center;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+th:first-child, th:nth-child(2) { text-align: left; }
+
+td {
+  padding: 7px 6px;
+  text-align: center;
+  border-bottom: 1px solid #1e2136;
+  font-variant-numeric: tabular-nums;
+}
+
+td:nth-child(2) { text-align: left; font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #1e2235; }
+
+.pos-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pos-badge.top { background: var(--try); color: #0a1a10; }
+.pos-badge.normal { color: var(--muted); }
+.td-pts { font-weight: 800; color: var(--try); }
+.td-pd-pos { color: var(--try); }
+.td-pd-neg { color: var(--turn); }
+
+/* FEED */
+.feed-list {
+  padding: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feed-item {
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border-left: 3px solid transparent;
+}
+
+.feed-try { border-left-color: var(--try); color: var(--try); }
+.feed-pen { border-left-color: var(--pen); color: var(--pen); }
+.feed-turn { border-left-color: var(--turn); color: var(--turn); }
+.feed-scrum { border-left-color: var(--scrum); color: var(--scrum); }
+.feed-result { border-left-color: var(--diff); background: #1e1a30; color: var(--text); font-weight: 700; }
+.feed-stats { border-left-color: #4a4a6a; color: var(--muted); font-size: 11px; }
+.feed-kickmade { color: #86efac; font-size: 11px; padding-left: 16px; }
+.feed-kickmiss { color: #fca5a5; font-size: 11px; padding-left: 16px; }
+.feed-round { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 0; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+.feed-match-header { color: var(--muted); font-size: 11px; padding: 3px 0; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.modal-overlay.hidden { display: none !important; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.modal h2 { font-size: 16px; margin-bottom: 12px; }
+.modal label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; margin-top: 10px; }
+
+.modal textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  height: 160px;
+  resize: vertical;
+}
+
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
+/* SCHEDULE */
+.schedule-list {
+  padding: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schedule-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--surface2);
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+
+.schedule-match.played { opacity: 0.45; }
+.schedule-match.current { border-color: var(--try); background: #0d2416; }
+
+.sch-teams { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+.sch-vs { color: var(--muted); font-weight: 400; font-size: 11px; }
+
+.sch-result { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; }
+.sch-result.home-win { color: var(--try); }
+.sch-result.away-win { color: var(--turn); }
+.sch-result.draw { color: var(--pen); }
+
+.round-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 4px 2px;
+}
+
+/* CUSTOM BUILDER MODAL */
+.modal.modal-wide { max-width: 680px; }
+
+.custom-builder-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+.custom-builder-table th {
+  padding: 6px 5px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.custom-builder-table td { padding: 5px 4px; vertical-align: middle; }
+
+.custom-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 5px 7px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+}
+.custom-input:focus { outline: none; border-color: var(--try); }
+
+.custom-num { width: 52px; }
+.custom-colour { width: 42px; padding: 2px 3px; height: 28px; cursor: pointer; }
+.custom-remove { background: none; border: 1px solid var(--border); color: var(--turn); border-radius: 5px; padding: 4px 8px; font-size: 13px; cursor: pointer; line-height: 1; }
+.custom-remove:hover { background: #2d1010; }
+
+.custom-error { color: var(--turn); font-size: 12px; margin-top: 8px; min-height: 18px; }
+
+.modal-options { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.modal-options label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; margin: 0; }
+.modal-options input[type=checkbox] { accent-color: var(--try); width: 14px; height: 14px; cursor: pointer; }
+.modal-options .pool-name-wrap { display: flex; align-items: center; gap: 6px; }
+.modal-options .pool-name-wrap span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* RATINGS CALCULATOR PANEL */
+.rate-toggle-row {
+  padding: 8px 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rate-panel {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rate-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.rate-explainer { font-size: 11px; color: var(--muted); }
+
+.rate-inputs { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+
+.rate-field { display: flex; flex-direction: column; gap: 4px; }
+.rate-field label { font-size: 11px; color: var(--muted); }
+.rate-field .custom-input { width: 90px; }
+
+.kick-calc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.kick-calc-row .custom-input { width: 70px; }
+.kick-calc-result { font-weight: 700; color: var(--pen); font-size: 12px; }
+
+.rate-result-boxes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+
+.rate-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  min-width: 70px;
+}
+.rate-box .rate-box-label { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+.rate-box .rate-box-val { font-size: 28px; font-weight: 900; line-height: 1; }
+.rate-box-atk { background: #1a3326; border-color: var(--try); }
+.rate-box-atk .rate-box-label { color: var(--try); }
+.rate-box-atk .rate-box-val { color: var(--try); }
+.rate-box-def { background: #1a1a3a; border-color: var(--scrum); }
+.rate-box-def .rate-box-label { color: var(--scrum); }
+.rate-box-def .rate-box-val { color: var(--scrum); }
+.rate-box-kick { background: #2d2207; border-color: var(--pen); }
+.rate-box-kick .rate-box-label { color: var(--pen); }
+.rate-box-kick .rate-box-val { color: var(--pen); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Rugby Union <span>Season Sim</span></h1>
+  <select id="poolSelect" onchange="onPoolChange(this.value)">
+    <option value="default">Default League</option>
+    <option value="sixnations">Six Nations 2026</option>
+    <option value="championship">Rugby Championship 2025</option>
+    <option value="worldleague">World League of Rugby</option>
+    <option value="custom" id="customPoolOption" class="hidden">Custom League</option>
+  </select>
+  <div class="round-badge" id="roundBadge">Round 1 / 10</div>
+  <div class="mode-toggle">
+    <button id="modeAuto" onclick="setMode('auto')">AUTO</button>
+    <button id="modeManual" class="active" onclick="setMode('manual')">MANUAL</button>
+  </div>
+  <button class="btn btn-primary" id="mainActionBtn" onclick="onMainAction()">&#9654; Simulate Round</button>
+  <button class="btn" onclick="openCustomBuilder()">&#x1F3D7; Custom</button>
+  <button class="btn" onclick="openModal()">&#128190; Save / Load</button>
+  <button class="btn" onclick="onReset()">&#8634; Reset</button>
+</header>
+
+<div class="app">
+  <!-- MAIN COL -->
+  <div class="main-col">
+
+    <!-- Teams -->
+    <div class="card">
+      <div class="card-header"><span class="dot"></span><span id="teamsCardTitle">Teams</span></div>
+      <div class="rate-toggle-row">
+        <button class="btn" style="font-size:12px;padding:4px 10px" onclick="toggleRatePanel()">&#x1F4CA; Rate from Stats</button>
+        <span style="font-size:11px;color:var(--muted)">Convert real season data to ATK / DEF / KICK ratings</span>
+      </div>
+      <div class="rate-panel hidden" id="ratePanel">
+        <div>
+          <div class="rate-panel-title">Rate a Team from Season Stats</div>
+          <div class="rate-explainer">Enter TF/g, TA/g and kick pts/g from a real season table.</div>
+        </div>
+        <div class="rate-inputs">
+          <div class="rate-field">
+            <label>TF per game</label>
+            <input class="custom-input" type="number" min="0" step="0.1" id="rateTF" placeholder="e.g. 3.2" oninput="onRateKickCalc()">
+          </div>
+          <div class="rate-field">
+            <label>TA per game</label>
+            <input class="custom-input" type="number" min="0" step="0.1" id="rateTA" placeholder="e.g. 2.8" oninput="onRateKickCalc()">
+          </div>
+          <div class="rate-field">
+            <label>Kick pts per game</label>
+            <input class="custom-input" type="number" min="0" step="0.1" id="rateKPG" placeholder="e.g. 8.5">
+          </div>
+        </div>
+        <div class="kick-calc-row">
+          <span>Calculate: PF</span>
+          <input class="custom-input" type="number" min="0" id="calcPF" placeholder="PF" oninput="onRateKickCalc()">
+          <span>TF</span>
+          <input class="custom-input" type="number" min="0" id="calcTF" placeholder="TF" oninput="onRateKickCalc()">
+          <span>G</span>
+          <input class="custom-input" type="number" min="1" id="calcG" placeholder="G" oninput="onRateKickCalc()">
+          <span>=</span>
+          <span class="kick-calc-result" id="calcKPGResult">—</span>
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="doCalcRatings()">Calculate Ratings</button>
+        </div>
+        <div class="rate-result-boxes hidden" id="rateResultBoxes">
+          <div class="rate-box rate-box-atk">
+            <span class="rate-box-label">ATK</span>
+            <span class="rate-box-val" id="rateResATK">—</span>
+          </div>
+          <div class="rate-box rate-box-def">
+            <span class="rate-box-label">DEF</span>
+            <span class="rate-box-val" id="rateResDEF">—</span>
+          </div>
+          <div class="rate-box rate-box-kick">
+            <span class="rate-box-label">KICK</span>
+            <span class="rate-box-val" id="rateResKICK">—</span>
+          </div>
+          <div style="display:flex;align-items:center">
+            <button class="btn" onclick="applyRatingsToBuilder()">Apply to Custom Builder</button>
+          </div>
+        </div>
+      </div>
+      <div class="teams-grid" id="teamsGrid"></div>
+    </div>
+
+    <!-- Manual Panel -->
+    <div class="card" id="manualCard">
+      <div class="card-header"><span class="dot" style="background:var(--pen)"></span>Match Panel</div>
+      <div class="manual-panel">
+
+        <!-- S1: Scoreboard -->
+        <div id="sec-scoreboard">
+          <div class="match-header">
+            <span class="match-label" id="matchLabel">—</span>
+            <span class="phase-label" id="phaseLabel">Phase 1 / 26</span>
+          </div>
+          <div class="scoreboard" style="margin-top:8px">
+            <div class="sb-team home">
+              <div class="team-name" id="sbHomeName">—</div>
+              <div class="score" id="sbHomeScore">0</div>
+              <div class="tries-label" id="sbHomeTries">0 tries</div>
+            </div>
+            <div class="sb-center">
+              <div class="vs">vs</div>
+              <div class="possession" id="sbPossession">&#x1F3C9; —</div>
+            </div>
+            <div class="sb-team away">
+              <div class="team-name" id="sbAwayName">—</div>
+              <div class="score" id="sbAwayScore">0</div>
+              <div class="tries-label" id="sbAwayTries">0 tries</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- S2: Phase dice -->
+        <div id="sec-phase-dice">
+          <div class="dice-row">
+            <div class="die-group">
+              <div class="die-box atk" id="dieAtk">—</div>
+              <div class="die-label" id="dieLabelAtk">— ATK +0</div>
+              <div class="die-formula" id="dieFormulaAtk">— + — = —</div>
+            </div>
+            <div class="dice-separator">vs</div>
+            <div class="die-group">
+              <div class="die-box def" id="dieDef">—</div>
+              <div class="die-label" id="dieLabelDef">— DEF +0</div>
+              <div class="die-formula" id="dieFormulaDef">— + — = —</div>
+            </div>
+            <div class="diff-group">
+              <div class="die-box diff-box" id="dieDiff">—</div>
+              <div class="die-label">DIFF</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- S3: Outcome table -->
+        <div id="sec-outcome" class="hidden">
+          <div class="outcome-table">
+            <div class="outcome-row" id="oc-runaway">
+              <span class="outcome-diff">Diff &ge; 12</span>
+              <span class="outcome-icon">&#x1F7E2;</span>
+              <span class="outcome-name">Runaway Try</span>
+            </div>
+            <div class="outcome-row" id="oc-hard">
+              <span class="outcome-diff">Diff &ge; 8</span>
+              <span class="outcome-icon">&#x1F7E2;</span>
+              <span class="outcome-name">Hard-Fought Try</span>
+            </div>
+            <div class="outcome-row" id="oc-penalty">
+              <span class="outcome-diff">Diff &ge; 6</span>
+              <span class="outcome-icon">&#x1F7E1;</span>
+              <span class="outcome-name">Penalty</span>
+            </div>
+            <div class="outcome-row" id="oc-scrum">
+              <span class="outcome-diff">Diff &ge; 4</span>
+              <span class="outcome-icon">&#x1F535;</span>
+              <span class="outcome-name" id="oc-scrum-name">Scrum Reset</span>
+            </div>
+            <div class="outcome-row" id="oc-turnover">
+              <span class="outcome-diff">Diff &lt; 4</span>
+              <span class="outcome-icon">&#x1F534;</span>
+              <span class="outcome-name">Turnover</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- S4: Kick section -->
+        <div id="sec-kick" class="hidden">
+          <div class="kick-header" id="kickHeader">&#9889; CONVERSION ATTEMPT</div>
+          <div class="kick-row-inner">
+            <div class="die-group" style="flex:0 0 auto">
+              <div class="die-box kick-die" id="dieKick">—</div>
+              <div class="die-label" id="dieLabelKick">— KICK +0</div>
+              <div class="die-formula" id="dieFormulaKick">—</div>
+            </div>
+            <div class="kick-table" id="kickTable">
+              <div class="kick-row-item" id="kr-made">&#10003; Made (&ge; threshold) &rarr; <strong id="krMadePoints">+2</strong> pts</div>
+              <div class="kick-row-item" id="kr-miss">&#10007; Missed (&lt; threshold) &rarr; +0 pts</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- S5: Flavour -->
+        <div id="sec-flavour" class="hidden">
+          <div class="flavour-wrapper" id="flavourWrapper"></div>
+        </div>
+
+        <!-- S6: Controls -->
+        <div class="controls-section">
+          <button class="main-action-btn" id="phaseBtn" onclick="onPhaseBtn()">Roll Phase 1</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- League Table -->
+    <div class="card">
+      <div class="card-header"><span class="dot" style="background:var(--scrum)"></span>League Table</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>
+              <th>PF</th><th>PA</th><th>PD</th><th>TF</th><th>TA</th><th>BP</th><th>Pts</th>
+            </tr>
+          </thead>
+          <tbody id="leagueTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SIDE COL -->
+  <div class="side-col">
+
+    <div class="card">
+      <div class="card-header"><span class="dot" style="background:var(--diff)"></span>Schedule</div>
+      <div class="schedule-list" id="scheduleList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot" style="background:var(--pen)"></span>Match Feed</div>
+      <div class="feed-list" id="feedList"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CUSTOM BUILDER MODAL -->
+<div class="modal-overlay hidden" id="customBuilderOverlay" onclick="if(event.target===this)closeCustomBuilder()">
+  <div class="modal modal-wide">
+    <h2>&#x1F3D7; Custom League Builder</h2>
+    <div class="modal-options">
+      <div class="pool-name-wrap">
+        <span>Pool name:</span>
+        <input class="custom-input" type="text" id="customPoolName" value="Custom League" style="width:160px">
+      </div>
+      <label>
+        <input type="checkbox" id="customHomeAway">
+        Home &amp; Away (double round-robin)
+      </label>
+    </div>
+    <div style="margin-top:12px;overflow-x:auto">
+      <table class="custom-builder-table">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th>Team Name</th>
+            <th style="width:60px">ATK</th>
+            <th style="width:60px">DEF</th>
+            <th style="width:60px">KICK</th>
+            <th style="width:50px">Colour</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="customTeamRows"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="customAddRowBtn" onclick="addCustomTeamRow()">+ Add Team</button>
+      <span style="font-size:11px;color:var(--muted)" id="customRowCount">0 / 10 teams</span>
+    </div>
+    <div class="custom-error" id="customError"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeCustomBuilder()">Cancel</button>
+      <button class="btn btn-primary" onclick="launchCustomSeason()">&#x1F680; Launch Season</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2>&#128190; Save / Load State</h2>
+    <label>Export (copy this JSON)</label>
+    <textarea id="exportArea" readonly onclick="this.select()"></textarea>
+    <label>Import (paste JSON here)</label>
+    <textarea id="importArea" placeholder="Paste exported JSON here..."></textarea>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doImport()">Load State</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════
+   FLAVOR TEXT
+═══════════════════════════════════════════ */
+const FLAVOR = {
+  runawayTry: [
+    "The defence is ripped apart \u2014 nothing they can do!",
+    "Blistering pace out wide, the fullback has no chance.",
+    "Clinical execution from the backs \u2014 pure class.",
+    "The gap opens like the Red Sea \u2014 he\u2019s in under the posts!",
+    "Sublime offloading in the tackle \u2014 score!",
+    "Counter-attack rugby at its finest. Unstoppable.",
+    "Down the blindside and there\u2019s nobody home \u2014 easy five!",
+    "The winger burns past two defenders \u2014 he\u2019s untouchable today.",
+    "One-two, through the line \u2014 the backs carve them to pieces.",
+    "It\u2019s a footrace and there\u2019s only one winner. Stunning try."
+  ],
+  hardTry: [
+    "Gritty rugby \u2014 they earn every inch of that score.",
+    "Battered back three times but they crash over in the end.",
+    "Pick and drive, pick and drive \u2014 the pack carries them over.",
+    "Turned over twice but the forwards bully through.",
+    "Blood and thunder up front \u2014 the tight five win this one.",
+    "Ugly but effective. The scoreboard doesn\u2019t lie.",
+    "Three phases from a metre out \u2014 they grind it over eventually.",
+    "Held up once, held up twice \u2014 third time, the referee awards it.",
+    "The number eight peels off the back of the scrum and batters through.",
+    "Recycled fifteen times before they find the gap. Patience rewarded."
+  ],
+  penalty: [
+    "The front row crumbles \u2014 penalty awarded!",
+    "High tackle \u2014 the referee has no choice.",
+    "Not rolling away at the breakdown. Three points the easy way.",
+    "Offside! The defensive line jumps too early.",
+    "Hands in the ruck \u2014 the ref\u2019s whistle ends that sequence.",
+    "Scrum penalty. The props have been struggling all afternoon.",
+    "Deliberate knock-on \u2014 the referee points straight to the posts.",
+    "Collapsed under the maul. Penalty, no argument.",
+    "Late hit on the kicker \u2014 and the crowd lets the referee know about it.",
+    "Tip tackle \u2014 lucky it\u2019s just a penalty. Could easily have been yellow."
+  ],
+  turnover: [
+    "Intercepted at the breakdown! The ball is free.",
+    "Loose carry \u2014 and they\u2019ve lost it.",
+    "Jackal! A brilliant pilfer from the openside.",
+    "The line-out goes wrong and the opposition pounce.",
+    "Overthrown! Counter-attack coming.",
+    "Knock on \u2014 referee\u2019s arm shoots out immediately.",
+    "Held up over the line \u2014 drop out.",
+    "The maul collapses and the ball squirts loose \u2014 stolen!",
+    "Pass goes to ground. They\u2019ll be furious with themselves.",
+    "The scrum half dithers and the flanker is all over it. Turnover."
+  ],
+  scrumReset: [
+    "Scrum reset \u2014 referee losing patience.",
+    "Not straight again. Another scrum.",
+    "Both sides collapse \u2014 resetting for the third time.",
+    "Front rows still finding each other out.",
+    "Crooked feed \u2014 back to square one.",
+    "Early engagement. They\u2019ll have to do that again.",
+    "The props can\u2019t agree on the bind \u2014 whistle goes.",
+    "Another reset. The referee has a word with both captains.",
+    "It goes down before they\u2019ve even engaged properly. Frustrating.",
+    "The loose-head is all over the place today. Reset."
+  ],
+  scrumPenalty: [
+    "Enough \u2014 penalty after repeated scrum resets.",
+    "The referee\u2019s patience runs out. Three points on offer.",
+    "Three scrums, three collapses. Penalty \u2014 no debate.",
+    "The props have been cited for this all game. Finally penalised.",
+    "Scrum collapses again \u2014 the referee points straight to the posts.",
+    "Deliberate collapsing. The referee has seen enough.",
+    "Prop goes to ground early \u2014 third time it\u2019s cost them. Penalty.",
+    "The hooker drives it at an angle \u2014 whistle, penalty.",
+    "Not straight, collapsed, and penalised. Pick a lane.",
+    "After three attempts the referee throws his hands up. Three points."
+  ],
+  convMade: [
+    "Right between the posts!",
+    "Bisects the uprights perfectly.",
+    "No bother \u2014 two more added.",
+    "Precise boot from the tee.",
+    "Routine for a kicker of his class. Two points.",
+    "Never in doubt \u2014 flags are raised immediately.",
+    "The ball sails through without touching the woodwork.",
+    "Textbook. Steps back, runs up, splits the uprights.",
+    "A little to the left but it sneaks over \u2014 conversion made.",
+    "From a tight angle but he makes it look simple. Excellent kick."
+  ],
+  convMissed: [
+    "Drifts wide in the crosswind.",
+    "Clips the upright \u2014 no good!",
+    "Just wide right \u2014 disappointing miss.",
+    "The wind takes it. No conversion.",
+    "Poor contact off the tee \u2014 never really threatened the posts.",
+    "Struck too low \u2014 doesn\u2019t have the height and falls short.",
+    "Swings away late. Two points left behind.",
+    "He knew it was wrong the moment it left his boot.",
+    "Pushed wide under pressure. No extra points.",
+    "Hit the crossbar and bounced clear \u2014 agonising."
+  ],
+  penKickMade: [
+    "Posts! Right down the middle.",
+    "Cool as you like \u2014 three points.",
+    "No nerves there \u2014 flags are up!",
+    "Splits the uprights cleanly.",
+    "The kick is true \u2014 three more.",
+    "Steps up, doesn\u2019t rush it \u2014 perfect.",
+    "Bang. Right through the middle. That\u2019s three.",
+    "Clipped beautifully off the instep \u2014 flags raised.",
+    "Long range but he\u2019s got the leg for it. Good kick.",
+    "Under pressure from fifty metres \u2014 absolutely nails it."
+  ],
+  penKickMissed: [
+    "Wide of the post \u2014 he\u2019ll be disappointed.",
+    "Missed! The crowd groans.",
+    "Drifts right in the crosswind \u2014 no score.",
+    "Short and wide \u2014 a poor effort.",
+    "The kicker shakes his head. No good.",
+    "Screwed off the side of his boot \u2014 no chance.",
+    "Slips on the follow-through \u2014 it tails away to the left.",
+    "Too far out for a kicker of his range today. Comes up short.",
+    "Hit well but drifts outside the right upright at the last moment.",
+    "He was never comfortable with the angle. Missed."
+  ]
+};
+
+/* ═══════════════════════════════════════════
+   POOLS
+═══════════════════════════════════════════ */
+const POOLS = {
+  default: {
+    name: 'Default League',
+    teams: {
+      edinburgh:  { name: 'Edinburgh',  atk: 7, def: 6, kick: 5, accent: '#c8a84b' },
+      cardiff:    { name: 'Cardiff',    atk: 6, def: 7, kick: 5, accent: '#4b9cc8' },
+      bristol:    { name: 'Bristol',    atk: 6, def: 6, kick: 6, accent: '#4bc87a' },
+      manchester: { name: 'Manchester', atk: 5, def: 5, kick: 7, accent: '#e05656' },
+      belfast:    { name: 'Belfast',    atk: 5, def: 6, kick: 6, accent: '#9b4bc8' },
+      leeds:      { name: 'Leeds',      atk: 4, def: 5, kick: 5, accent: '#4bc8c8' }
+    }
+  },
+  sixnations: {
+    name: 'Six Nations 2026',
+    singleRoundRobin: true,
+    teams: {
+      france:   { name: 'France',   atk: 8, def: 7, kick: 7, accent: '#4b7bcc' },
+      ireland:  { name: 'Ireland',  atk: 7, def: 8, kick: 7, accent: '#169b62' },
+      scotland: { name: 'Scotland', atk: 7, def: 5, kick: 6, accent: '#5588bb' },
+      england:  { name: 'England',  atk: 6, def: 5, kick: 7, accent: '#cc3333' },
+      italy:    { name: 'Italy',    atk: 4, def: 6, kick: 8, accent: '#27a870' },
+      wales:    { name: 'Wales',    atk: 4, def: 3, kick: 5, accent: '#d01e27' }
+    }
+  },
+  championship: {
+    name: 'Rugby Championship 2025',
+    teams: {
+      southafrica: { name: 'South Africa', atk: 8, def: 7, kick: 8, accent: '#007A4D' },
+      newzealand:  { name: 'New Zealand',  atk: 7, def: 7, kick: 7, accent: '#aaaaaa' },
+      australia:   { name: 'Australia',    atk: 6, def: 5, kick: 6, accent: '#e8b800' },
+      argentina:   { name: 'Argentina',    atk: 7, def: 4, kick: 8, accent: '#74acdf' }
+    }
+  },
+  worldleague: {
+    name: 'World League of Rugby',
+    teams: {
+      londonravens:     { name: 'London Ravens',       atk: 7, def: 6, kick: 7, accent: '#c8a020', nickname: 'The Ravens' },
+      glasgowironworks: { name: 'Glasgow Ironworks',   atk: 6, def: 8, kick: 5, accent: '#cc3333', nickname: 'The Iron' },
+      dublinwolfhounds: { name: 'Dublin Wolfhounds',   atk: 7, def: 7, kick: 7, accent: '#34c85a', nickname: 'The Hounds' },
+      cardiffdragons:   { name: 'Cardiff Dragons',     atk: 5, def: 5, kick: 6, accent: '#e03030', nickname: 'The Dragons' },
+      romecenturions:   { name: 'Rome Centurions',     atk: 5, def: 6, kick: 8, accent: '#9b5bc8', nickname: 'The Centurions' },
+      buenosairescondors: { name: 'Buenos Aires Condors', atk: 8, def: 4, kick: 8, accent: '#74acdf', nickname: 'The Condors' },
+      johannesburgjackals: { name: 'Johannesburg Jackals', atk: 8, def: 7, kick: 8, accent: '#27a85c', nickname: 'The Jackals' },
+      aucklandstorm:    { name: 'Auckland Storm',      atk: 7, def: 7, kick: 7, accent: '#4b9ae8', nickname: 'The Storm' },
+      sydneyheadlands:  { name: 'Sydney Headlands',   atk: 6, def: 5, kick: 6, accent: '#f5a623', nickname: 'The Heads' },
+      parisblades:      { name: 'Paris Blades',        atk: 8, def: 6, kick: 7, accent: '#c8304a', nickname: 'Les Lames' }
+    }
+  }
+};
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let S = {};
+let currentPool = 'default';
+let currentMode = 'manual';
+let ACTIVE_TEAMS = {};
+let ACTIVE_KEYS = [];
+
+function initState() {
+  ACTIVE_TEAMS = POOLS[currentPool].teams;
+  ACTIVE_KEYS = Object.keys(ACTIVE_TEAMS);
+
+  const schedule = buildSchedule(ACTIVE_KEYS);
+  const league = {};
+  ACTIVE_KEYS.forEach(k => {
+    league[k] = { p: 0, w: 0, d: 0, l: 0, pf: 0, pa: 0, tf: 0, ta: 0, bp: 0, pts: 0 };
+  });
+
+  const matches = [];
+  schedule.forEach((round, ri) => {
+    round.forEach(m => {
+      matches.push({
+        round: ri + 1,
+        home: m.home,
+        away: m.away,
+        played: false,
+        homeScore: 0, awayScore: 0,
+        homeTries: 0, awayTries: 0,
+        homeBP: 0, awayBP: 0
+      });
+    });
+  });
+
+  S = {
+    currentMatchIdx: 0,
+    matches,
+    league,
+    feed: [],
+    manual: { cur: null }
+  };
+}
+
+function selectPool(poolKey) {
+  currentPool = poolKey;
+  initState();
+  renderAll();
+  if (currentMode === 'manual' && S.matches.length > 0) {
+    initManualMatch(S.matches[0]);
+    resetPanelSections();
+    refreshManualDisplay();
+  }
+  updateMainBtn();
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE BUILDER (Berger circle)
+═══════════════════════════════════════════ */
+function buildSchedule(keys) {
+  const half = buildHalfSchedule(keys);
+  if (POOLS[currentPool].singleRoundRobin) return half;
+  const second = half.map(round => round.map(m => ({ home: m.away, away: m.home })));
+  return [...half, ...second];
+}
+
+function buildHalfSchedule(keys) {
+  const n = keys.length;
+  const rounds = [];
+  const fixed = keys[0];
+  let rotating = keys.slice(1);
+
+  for (let r = 0; r < n - 1; r++) {
+    const circle = [fixed, ...rotating];
+    const round = [];
+    for (let i = 0; i < n / 2; i++) {
+      if (r % 2 === 0) {
+        round.push({ home: circle[i], away: circle[n - 1 - i] });
+      } else {
+        round.push({ home: circle[n - 1 - i], away: circle[i] });
+      }
+    }
+    rounds.push(round);
+    rotating = [rotating[rotating.length - 1], ...rotating.slice(0, rotating.length - 1)];
+  }
+  return rounds;
+}
+
+/* ═══════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════ */
+const d20 = () => Math.floor(Math.random() * 20) + 1;
+
+function pickIndexed(arr) {
+  const idx = Math.floor(Math.random() * 10);
+  return { text: arr[idx], idx, roll: idx + 1 };
+}
+
+function classifyDiff(diff) {
+  if (diff >= 12) return 'runawayTry';
+  if (diff >= 8)  return 'hardTry';
+  if (diff >= 6)  return 'penalty';
+  if (diff >= 4)  return 'scrumReset';
+  return 'turnover';
+}
+
+function resolveOutcome(diff, consecutiveScrums) {
+  const base = classifyDiff(diff);
+  if (base === 'scrumReset' && consecutiveScrums >= 2) return 'scrumPenalty';
+  return base;
+}
+
+function needsKick(outcome) {
+  return ['runawayTry', 'hardTry', 'penalty', 'scrumPenalty'].includes(outcome);
+}
+
+function kickThreshold(outcome) {
+  if (outcome === 'runawayTry') return 8;
+  if (outcome === 'hardTry') return 14;
+  return 11; // penalty / scrumPenalty
+}
+
+function kickBonus(outcome) {
+  if (outcome === 'runawayTry' || outcome === 'hardTry') return 2;
+  return 3;
+}
+
+function switchPossession(atkKey, defKey, outcome) {
+  if (outcome === 'scrumReset') return { atk: atkKey, def: defKey };
+  return { atk: defKey, def: atkKey };
+}
+
+function nextScrumCounter(cur, outcome) {
+  return outcome === 'scrumReset' ? cur + 1 : 0;
+}
+
+/* ═══════════════════════════════════════════
+   AUTO MATCH SIMULATION
+═══════════════════════════════════════════ */
+function simulateMatch(matchObj) {
+  const { home, away } = matchObj;
+  let homeScore = 0, awayScore = 0, homeTries = 0, awayTries = 0;
+  let atkKey = home, defKey = away, consecutiveScrums = 0;
+  const phaseLog = [];
+  let homeConvA = 0, homeConvM = 0, homePenA = 0, homePenM = 0;
+  let awayConvA = 0, awayConvM = 0, awayPenA = 0, awayPenM = 0;
+
+  for (let phase = 1; phase <= 26; phase++) {
+    const atk = ACTIVE_TEAMS[atkKey], def = ACTIVE_TEAMS[defKey];
+    const atkRoll = d20(), defRoll = d20();
+    const homeAdv = atkKey === home ? 1 : 0;
+    const diff = (atkRoll + atk.atk + homeAdv) - (defRoll + def.def);
+    const outcome = resolveOutcome(diff, consecutiveScrums);
+
+    let kickRes = null;
+    if (needsKick(outcome)) {
+      const kr = d20();
+      const kt = kr + ACTIVE_TEAMS[atkKey].kick;
+      const threshold = kickThreshold(outcome);
+      kickRes = { roll: kr, total: kt, threshold, made: kt >= threshold };
+    }
+
+    const isTry = outcome === 'runawayTry' || outcome === 'hardTry';
+    const isPen = outcome === 'penalty' || outcome === 'scrumPenalty';
+    let pts = isTry ? 5 : 0;
+    if (kickRes && kickRes.made) pts += kickBonus(outcome);
+
+    if (atkKey === home) {
+      homeScore += pts; if (isTry) homeTries++;
+      if (kickRes && isTry)  { homeConvA++; if (kickRes.made) homeConvM++; }
+      if (kickRes && isPen)  { homePenA++;  if (kickRes.made) homePenM++;  }
+    } else {
+      awayScore += pts; if (isTry) awayTries++;
+      if (kickRes && isTry)  { awayConvA++; if (kickRes.made) awayConvM++; }
+      if (kickRes && isPen)  { awayPenA++;  if (kickRes.made) awayPenM++;  }
+    }
+
+    phaseLog.push({ phase, attackerKey: atkKey, defenderKey: defKey, outcome, kickRes });
+
+    consecutiveScrums = nextScrumCounter(consecutiveScrums, outcome);
+    const sw = switchPossession(atkKey, defKey, outcome);
+    atkKey = sw.atk; defKey = sw.def;
+  }
+
+  matchObj.played = true;
+  matchObj.homeScore = homeScore; matchObj.awayScore = awayScore;
+  matchObj.homeTries = homeTries; matchObj.awayTries = awayTries;
+  matchObj.homeConvA = homeConvA; matchObj.homeConvM = homeConvM;
+  matchObj.homePenA = homePenA;   matchObj.homePenM = homePenM;
+  matchObj.awayConvA = awayConvA; matchObj.awayConvM = awayConvM;
+  matchObj.awayPenA = awayPenA;   matchObj.awayPenM = awayPenM;
+
+  applyLeague(matchObj);
+  return phaseLog;
+}
+
+function applyLeague(matchObj) {
+  const { home, away, homeScore, awayScore, homeTries, awayTries } = matchObj;
+  let homeBP = 0, awayBP = 0;
+  if (homeTries >= 4) homeBP++;
+  if (awayTries >= 4) awayBP++;
+  const gap = Math.abs(homeScore - awayScore);
+  if (homeScore < awayScore && gap <= 7) homeBP++;
+  if (awayScore < homeScore && gap <= 7) awayBP++;
+  matchObj.homeBP = homeBP; matchObj.awayBP = awayBP;
+
+  const hl = S.league[home], al = S.league[away];
+  hl.p++; al.p++;
+  hl.pf += homeScore; hl.pa += awayScore;
+  hl.tf += homeTries; hl.ta += awayTries;
+  al.pf += awayScore; al.pa += homeScore;
+  al.tf += awayTries; al.ta += homeTries;
+  hl.bp += homeBP; al.bp += awayBP;
+
+  if (homeScore > awayScore) {
+    hl.w++; hl.pts += 4 + homeBP;
+    al.l++; al.pts += awayBP;
+  } else if (awayScore > homeScore) {
+    al.w++; al.pts += 4 + awayBP;
+    hl.l++; hl.pts += homeBP;
+  } else {
+    hl.d++; hl.pts += 2 + homeBP;
+    al.d++; al.pts += 2 + awayBP;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   FEED HELPERS
+═══════════════════════════════════════════ */
+function buildFeedEntries(phase, atkKey, defKey, outcome, kickRes) {
+  const atkName = ACTIVE_TEAMS[atkKey].name;
+  const defName = ACTIVE_TEAMS[defKey].name;
+  const entries = [];
+
+  const flavourKey =
+    outcome === 'runawayTry'   ? 'runawayTry' :
+    outcome === 'hardTry'      ? 'hardTry' :
+    outcome === 'penalty'      ? 'penalty' :
+    outcome === 'scrumPenalty' ? 'scrumPenalty' :
+    outcome === 'scrumReset'   ? 'scrumReset' : 'turnover';
+
+  const fp = pickIndexed(FLAVOR[flavourKey]);
+
+  if (outcome === 'runawayTry' || outcome === 'hardTry') {
+    const label = outcome === 'runawayTry' ? 'Runaway Try' : 'Hard Try';
+    entries.push({ cls: 'feed-try', text: `Ph${phase} \u00b7 ${atkName} \u2014 ${label}: ${fp.text}` });
+    if (kickRes) {
+      const kf = pickIndexed(kickRes.made ? FLAVOR.convMade : FLAVOR.convMissed);
+      entries.push({ cls: kickRes.made ? 'feed-kickmade' : 'feed-kickmiss',
+        text: kickRes.made ? `\u21b3 Conversion made (+2). \u201c${kf.text}\u201d` : `\u21b3 Conversion missed. \u201c${kf.text}\u201d` });
+    }
+  } else if (outcome === 'penalty' || outcome === 'scrumPenalty') {
+    const label = outcome === 'scrumPenalty' ? 'Scrum Penalty' : 'Penalty';
+    entries.push({ cls: 'feed-pen', text: `Ph${phase} \u00b7 ${atkName} \u2014 ${label}: ${fp.text}` });
+    if (kickRes) {
+      const kf = pickIndexed(kickRes.made ? FLAVOR.penKickMade : FLAVOR.penKickMissed);
+      entries.push({ cls: kickRes.made ? 'feed-kickmade' : 'feed-kickmiss',
+        text: kickRes.made ? `\u21b3 Penalty kick over (+3). \u201c${kf.text}\u201d` : `\u21b3 Penalty kick missed. \u201c${kf.text}\u201d` });
+    }
+  } else if (outcome === 'turnover') {
+    entries.push({ cls: 'feed-turn', text: `Ph${phase} \u00b7 ${defName} \u2014 Turnover: ${fp.text}` });
+  } else {
+    entries.push({ cls: 'feed-scrum', text: `Ph${phase} \u00b7 Scrum reset. ${fp.text}` });
+  }
+
+  return entries;
+}
+
+function kickStatStr(made, att) {
+  if (att === 0) return '—';
+  const pct = Math.round((made / att) * 100);
+  return `${made}/${att} (${pct}%)`;
+}
+
+function addMatchResultToFeed(matchObj) {
+  const hName = ACTIVE_TEAMS[matchObj.home].name;
+  const aName = ACTIVE_TEAMS[matchObj.away].name;
+  const hBP = matchObj.homeBP > 0 ? ` (+${matchObj.homeBP}BP)` : '';
+  const aBP = matchObj.awayBP > 0 ? ` (+${matchObj.awayBP}BP)` : '';
+  S.feed.unshift({ cls: 'feed-result',
+    text: `RESULT \u2014 ${hName} ${matchObj.homeScore}${hBP} \u2013 ${matchObj.awayScore}${aBP} ${aName}` });
+  const hConv = kickStatStr(matchObj.homeConvM || 0, matchObj.homeConvA || 0);
+  const aConv = kickStatStr(matchObj.awayConvM || 0, matchObj.awayConvA || 0);
+  const hPen  = kickStatStr(matchObj.homePenM  || 0, matchObj.homePenA  || 0);
+  const aPen  = kickStatStr(matchObj.awayPenM  || 0, matchObj.awayPenA  || 0);
+  S.feed.unshift({ cls: 'feed-stats',
+    text: `Conv: ${hName} ${hConv} | ${aName} ${aConv}  \u00b7  Pen kicks: ${hName} ${hPen} | ${aName} ${aPen}` });
+}
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+function renderAll() {
+  renderTeamsGrid();
+  renderLeagueTable();
+  renderSchedule();
+  renderFeed();
+  renderManualPanel();
+  updateRoundBadge();
+  updateMainBtn();
+}
+
+function renderTeamsGrid() {
+  const grid = document.getElementById('teamsGrid');
+  grid.innerHTML = '';
+  document.getElementById('teamsCardTitle').textContent = POOLS[currentPool].name + ' \u2014 Teams';
+  ACTIVE_KEYS.forEach(k => {
+    const t = ACTIVE_TEAMS[k];
+    const div = document.createElement('div');
+    div.className = 'team-card';
+    div.style.borderTopColor = t.accent;
+    div.innerHTML = `
+      <div class="name" style="color:${t.accent}">${t.name}</div>
+      <div class="stat-pills">
+        <span class="stat-pill pill-atk">ATK ${t.atk}</span>
+        <span class="stat-pill pill-def">DEF ${t.def}</span>
+        <span class="stat-pill pill-kick">KCK ${t.kick}</span>
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function renderLeagueTable() {
+  const tbody = document.getElementById('leagueTableBody');
+  const sorted = [...ACTIVE_KEYS].sort((a, b) => {
+    const la = S.league[a], lb = S.league[b];
+    if (lb.pts !== la.pts) return lb.pts - la.pts;
+    return (lb.pf - lb.pa) - (la.pf - la.pa);
+  });
+
+  tbody.innerHTML = '';
+  sorted.forEach((k, i) => {
+    const l = S.league[k];
+    const t = ACTIVE_TEAMS[k];
+    const pd = l.pf - l.pa;
+    const pos = i + 1;
+    const badge = pos <= 2
+      ? `<span class="pos-badge top">${pos}</span>`
+      : `<span class="pos-badge normal">${pos}</span>`;
+    const pdCls = pd > 0 ? 'td-pd-pos' : pd < 0 ? 'td-pd-neg' : '';
+    const pdStr = pd > 0 ? `+${pd}` : `${pd}`;
+    tbody.innerHTML += `<tr>
+      <td>${badge}</td>
+      <td style="color:${t.accent}">${t.name}</td>
+      <td>${l.p}</td><td>${l.w}</td><td>${l.d}</td><td>${l.l}</td>
+      <td>${l.pf}</td><td>${l.pa}</td>
+      <td class="${pdCls}">${pdStr}</td>
+      <td style="color:var(--try)">${l.tf}</td><td style="color:var(--turn)">${l.ta}</td>
+      <td>${l.bp}</td>
+      <td class="td-pts">${l.pts}</td>
+    </tr>`;
+  });
+}
+
+function renderSchedule() {
+  const list = document.getElementById('scheduleList');
+  list.innerHTML = '';
+  const totalRounds = POOLS[currentPool].singleRoundRobin ? ACTIVE_KEYS.length - 1 : (ACTIVE_KEYS.length - 1) * 2;
+  let lastRound = 0;
+
+  S.matches.forEach((m, idx) => {
+    if (m.round !== lastRound) {
+      const div = document.createElement('div');
+      div.className = 'round-label';
+      div.textContent = `Round ${m.round} / ${totalRounds}`;
+      list.appendChild(div);
+      lastRound = m.round;
+    }
+
+    const div = document.createElement('div');
+    const isCurrent = !m.played && idx === S.currentMatchIdx;
+    div.className = 'schedule-match' + (m.played ? ' played' : '') + (isCurrent ? ' current' : '');
+
+    let resultHtml = '';
+    if (m.played) {
+      const cls = m.homeScore > m.awayScore ? 'home-win' : m.awayScore > m.homeScore ? 'away-win' : 'draw';
+      resultHtml = `<span class="sch-result ${cls}">${m.homeScore}\u2013${m.awayScore}</span>`;
+    } else if (isCurrent) {
+      resultHtml = `<span style="color:var(--pen);font-size:11px">\u25b6 Next</span>`;
+    }
+
+    const hName = ACTIVE_TEAMS[m.home].name;
+    const aName = ACTIVE_TEAMS[m.away].name;
+    div.innerHTML = `
+      <div class="sch-teams">
+        <span style="color:${ACTIVE_TEAMS[m.home].accent}">${hName}</span>
+        <span class="sch-vs">vs</span>
+        <span style="color:${ACTIVE_TEAMS[m.away].accent}">${aName}</span>
+      </div>
+      ${resultHtml}
+    `;
+    list.appendChild(div);
+  });
+}
+
+function renderFeed() {
+  const list = document.getElementById('feedList');
+  list.innerHTML = '';
+  if (!S.feed.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">No events yet. Start the season!</div>';
+    return;
+  }
+  S.feed.slice(0, 300).forEach(e => {
+    const div = document.createElement('div');
+    div.className = `feed-item ${e.cls}`;
+    div.textContent = e.text;
+    list.appendChild(div);
+  });
+}
+
+function renderManualPanel() {
+  const card = document.getElementById('manualCard');
+  if (currentMode !== 'manual') { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  if (S.currentMatchIdx >= S.matches.length) {
+    document.getElementById('matchLabel').textContent = 'Season Complete';
+    document.getElementById('phaseLabel').textContent = '';
+    document.getElementById('sbHomeName').textContent = '—';
+    document.getElementById('sbAwayName').textContent = '—';
+    document.getElementById('sbHomeScore').textContent = '—';
+    document.getElementById('sbAwayScore').textContent = '—';
+    document.getElementById('sbHomeTries').textContent = '';
+    document.getElementById('sbAwayTries').textContent = '';
+    document.getElementById('sbPossession').textContent = '';
+    const btn = document.getElementById('phaseBtn');
+    btn.textContent = '\u2713 Season Complete';
+    btn.disabled = true;
+    return;
+  }
+
+  if (!S.manual.cur && S.currentMatchIdx < S.matches.length) {
+    initManualMatch(S.matches[S.currentMatchIdx]);
+  }
+  if (S.manual.cur) refreshManualDisplay();
+}
+
+function initManualMatch(matchObj) {
+  S.manual.cur = {
+    matchIdx: S.currentMatchIdx,
+    home: matchObj.home,
+    away: matchObj.away,
+    homeScore: 0, awayScore: 0,
+    homeTries: 0, awayTries: 0,
+    homeConvA: 0, homeConvM: 0, homePenA: 0, homePenM: 0,
+    awayConvA: 0, awayConvM: 0, awayPenA: 0, awayPenM: 0,
+    phase: 1,
+    atkKey: matchObj.home,
+    defKey: matchObj.away,
+    consecutiveScrums: 0,
+    btnState: 'roll_phase',
+    lastOutcome: null,
+    kickerKey: null
+  };
+}
+
+function refreshManualDisplay() {
+  const cur = S.manual.cur;
+  if (!cur) return;
+  const matchObj = S.matches[cur.matchIdx];
+  const totalMatches = S.matches.length;
+  const totalRounds = POOLS[currentPool].singleRoundRobin ? ACTIVE_KEYS.length - 1 : (ACTIVE_KEYS.length - 1) * 2;
+
+  document.getElementById('matchLabel').textContent =
+    `Match ${cur.matchIdx + 1} of ${totalMatches} \u2014 Round ${matchObj.round}`;
+  document.getElementById('phaseLabel').textContent = `Phase ${cur.phase} / 26`;
+  document.getElementById('sbHomeName').textContent = ACTIVE_TEAMS[cur.home].name;
+  document.getElementById('sbAwayName').textContent = ACTIVE_TEAMS[cur.away].name;
+  document.getElementById('sbHomeScore').textContent = cur.homeScore;
+  document.getElementById('sbAwayScore').textContent = cur.awayScore;
+  document.getElementById('sbHomeTries').textContent = `${cur.homeTries} tr${cur.homeTries === 1 ? 'y' : 'ies'}`;
+  document.getElementById('sbAwayTries').textContent = `${cur.awayTries} tr${cur.awayTries === 1 ? 'y' : 'ies'}`;
+  document.getElementById('sbPossession').textContent = `\u{1F3C9} ${ACTIVE_TEAMS[cur.atkKey].name} attacking`;
+
+  if (cur.btnState === 'roll_phase') {
+    document.getElementById('dieAtk').textContent = '—';
+    document.getElementById('dieDef').textContent = '—';
+    document.getElementById('dieDiff').textContent = '—';
+    document.getElementById('dieLabelAtk').textContent =
+      `${ACTIVE_TEAMS[cur.atkKey].name} ATK +${ACTIVE_TEAMS[cur.atkKey].atk}`;
+    document.getElementById('dieLabelDef').textContent =
+      `${ACTIVE_TEAMS[cur.defKey].name} DEF +${ACTIVE_TEAMS[cur.defKey].def}`;
+    document.getElementById('dieFormulaAtk').textContent = '— + — = —';
+    document.getElementById('dieFormulaDef').textContent = '— + — = —';
+  }
+
+  updatePhaseBtn();
+}
+
+function resetPanelSections() {
+  document.getElementById('sec-outcome').classList.add('hidden');
+  document.getElementById('sec-kick').classList.add('hidden');
+  document.getElementById('sec-flavour').classList.add('hidden');
+  ['oc-runaway','oc-hard','oc-penalty','oc-scrum','oc-turnover'].forEach(id =>
+    document.getElementById(id).classList.remove('match'));
+  document.getElementById('oc-scrum-name').textContent = 'Scrum Reset';
+}
+
+function updatePhaseBtn() {
+  const cur = S.manual.cur;
+  if (!cur) return;
+  const btn = document.getElementById('phaseBtn');
+  btn.disabled = false;
+  btn.className = 'main-action-btn';
+
+  switch (cur.btnState) {
+    case 'roll_phase': btn.textContent = `Roll Phase ${cur.phase}`; break;
+    case 'rolling':    btn.textContent = 'Rolling\u2026'; btn.disabled = true; break;
+    case 'roll_kick':
+      btn.textContent = 'Roll Kick \u26a1';
+      btn.classList.add('kick-state'); break;
+    case 'advance':
+      btn.textContent = cur.phase >= 26 ? 'Full Time \u2713' : `\u2192 Phase ${cur.phase + 1}`;
+      btn.classList.add('advance-state'); break;
+    case 'match_done':
+      btn.textContent = S.currentMatchIdx < S.matches.length - 1 ? 'Next Match \u2192' : '\u2713 Season Complete';
+      btn.classList.add('done-state'); break;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MANUAL STATE MACHINE
+═══════════════════════════════════════════ */
+function onPhaseBtn() {
+  const cur = S.manual.cur;
+  if (!cur) return;
+  switch (cur.btnState) {
+    case 'roll_phase': doRollPhase(); break;
+    case 'roll_kick':  doRollKick();  break;
+    case 'advance':    doAdvancePhase(); break;
+    case 'match_done': doNextMatch(); break;
+  }
+}
+
+async function doRollPhase() {
+  const cur = S.manual.cur;
+  const atk = ACTIVE_TEAMS[cur.atkKey];
+  const def = ACTIVE_TEAMS[cur.defKey];
+
+  const atkRoll = d20(), defRoll = d20();
+  const homeAdv = cur.atkKey === cur.home ? 1 : 0;
+  const atkTotal = atkRoll + atk.atk + homeAdv;
+  const defTotal = defRoll + def.def;
+  const diff = atkTotal - defTotal;
+  const outcome = resolveOutcome(diff, cur.consecutiveScrums);
+
+  cur.lastOutcome = outcome;
+  cur.kickerKey = cur.atkKey; // capture before possession switch
+  cur.btnState = 'rolling';
+  updatePhaseBtn();
+
+  // Animate phase dice
+  await Promise.all([
+    animateDie(document.getElementById('dieAtk'), atkRoll),
+    animateDie(document.getElementById('dieDef'), defRoll)
+  ]);
+
+  // Show formulas
+  const atkLabel = homeAdv ? `${atk.name} ATK +${atk.atk} (+1 home)` : `${atk.name} ATK +${atk.atk}`;
+  document.getElementById('dieLabelAtk').textContent = atkLabel;
+  document.getElementById('dieLabelDef').textContent = `${def.name} DEF +${def.def}`;
+  document.getElementById('dieFormulaAtk').textContent = homeAdv ? `${atkRoll} + ${atk.atk} + 1 = ${atkTotal}` : `${atkRoll} + ${atk.atk} = ${atkTotal}`;
+  document.getElementById('dieFormulaDef').textContent = `${defRoll} + ${def.def} = ${defTotal}`;
+  document.getElementById('dieDiff').textContent = diff >= 0 ? `+${diff}` : `${diff}`;
+
+  // Outcome table
+  document.getElementById('sec-outcome').classList.remove('hidden');
+  highlightOutcomeRow(outcome);
+
+  // Track tries (score applied later or now if no kick)
+  const isTry = outcome === 'runawayTry' || outcome === 'hardTry';
+  if (isTry) {
+    if (cur.atkKey === cur.home) cur.homeTries++;
+    else cur.awayTries++;
+    document.getElementById('sbHomeTries').textContent = `${cur.homeTries} tr${cur.homeTries === 1 ? 'y' : 'ies'}`;
+    document.getElementById('sbAwayTries').textContent = `${cur.awayTries} tr${cur.awayTries === 1 ? 'y' : 'ies'}`;
+  }
+
+  // Scrum counter
+  cur.consecutiveScrums = nextScrumCounter(cur.consecutiveScrums, outcome);
+
+  // Phase flavour
+  const flavourKey = outcome === 'runawayTry' ? 'runawayTry' :
+    outcome === 'hardTry' ? 'hardTry' :
+    outcome === 'penalty' ? 'penalty' :
+    outcome === 'scrumPenalty' ? 'scrumPenalty' :
+    outcome === 'scrumReset' ? 'scrumReset' : 'turnover';
+
+  const fp = pickIndexed(FLAVOR[flavourKey]);
+  document.getElementById('sec-flavour').classList.remove('hidden');
+  document.getElementById('flavourWrapper').innerHTML = `
+    <div class="flavour-box">
+      <div class="d10-label">\uD83C\uDFB2 d10 \u2192 ${fp.roll}</div>
+      <div class="flavour-text">${fp.text}</div>
+    </div>`;
+
+  if (needsKick(outcome)) {
+    showKickSection(outcome);
+    cur.btnState = 'roll_kick';
+  } else {
+    // No kick — apply 0 score, switch possession
+    const sw = switchPossession(cur.atkKey, cur.defKey, outcome);
+    cur.atkKey = sw.atk; cur.defKey = sw.def;
+    document.getElementById('sbPossession').textContent =
+      `\u{1F3C9} ${ACTIVE_TEAMS[cur.atkKey].name} attacking`;
+    cur.btnState = 'advance';
+  }
+
+  updatePhaseBtn();
+}
+
+function highlightOutcomeRow(outcome) {
+  ['oc-runaway','oc-hard','oc-penalty','oc-scrum','oc-turnover'].forEach(id =>
+    document.getElementById(id).classList.remove('match'));
+
+  if (outcome === 'runawayTry') document.getElementById('oc-runaway').classList.add('match');
+  else if (outcome === 'hardTry') document.getElementById('oc-hard').classList.add('match');
+  else if (outcome === 'penalty') document.getElementById('oc-penalty').classList.add('match');
+  else if (outcome === 'scrumReset') {
+    document.getElementById('oc-scrum').classList.add('match');
+  } else if (outcome === 'scrumPenalty') {
+    document.getElementById('oc-scrum').classList.add('match');
+    document.getElementById('oc-scrum-name').textContent = 'Scrum Reset \u2192 Penalty (\u00d73)';
+  } else if (outcome === 'turnover') {
+    document.getElementById('oc-turnover').classList.add('match');
+  }
+}
+
+function showKickSection(outcome) {
+  const threshold = kickThreshold(outcome);
+  const bonus = kickBonus(outcome);
+  const isConv = outcome === 'runawayTry' || outcome === 'hardTry';
+
+  document.getElementById('kickHeader').textContent =
+    isConv ? `\u26a1 CONVERSION ATTEMPT (need \u2265 ${threshold})` : `\u26a1 PENALTY KICK (need \u2265 ${threshold})`;
+  document.getElementById('dieKick').textContent = '—';
+  document.getElementById('dieLabelKick').textContent = `${ACTIVE_TEAMS[cur_().kickerKey].name} KICK +${ACTIVE_TEAMS[cur_().kickerKey].kick}`;
+  document.getElementById('dieFormulaKick').textContent = `— + — = — (need \u2265 ${threshold})`;
+  document.getElementById('kr-made').className = 'kick-row-item';
+  document.getElementById('kr-miss').className = 'kick-row-item';
+  document.getElementById('kr-made').innerHTML =
+    `\u2713 Made (\u2265 ${threshold}) \u2192 <strong>+${bonus}</strong> pts${isConv ? ' (total 7)' : ''}`;
+  document.getElementById('kr-miss').innerHTML =
+    `\u2717 Missed (< ${threshold}) \u2192 ${isConv ? '+5 pts (try only)' : '+0 pts'}`;
+  document.getElementById('sec-kick').classList.remove('hidden');
+}
+
+function cur_() { return S.manual.cur; }
+
+async function doRollKick() {
+  const cur = S.manual.cur;
+  const outcome = cur.lastOutcome;
+  const kicker = ACTIVE_TEAMS[cur.kickerKey];
+  const threshold = kickThreshold(outcome);
+  const bonus = kickBonus(outcome);
+  const isTry = outcome === 'runawayTry' || outcome === 'hardTry';
+
+  const roll = d20();
+  const total = roll + kicker.kick;
+  const made = total >= threshold;
+
+  cur.btnState = 'rolling';
+  updatePhaseBtn();
+
+  await animateDie(document.getElementById('dieKick'), roll);
+
+  document.getElementById('dieLabelKick').textContent = `${kicker.name} KICK +${kicker.kick}`;
+  document.getElementById('dieFormulaKick').textContent = `${roll} + ${kicker.kick} = ${total} (need \u2265 ${threshold})`;
+
+  if (made) {
+    document.getElementById('kr-made').className = 'kick-row-item match-made';
+    document.getElementById('kr-miss').className = 'kick-row-item';
+  } else {
+    document.getElementById('kr-miss').className = 'kick-row-item match-miss';
+    document.getElementById('kr-made').className = 'kick-row-item';
+  }
+
+  // Apply score and track kick stats
+  let score = isTry ? 5 : 0;
+  if (made) score += bonus;
+
+  if (cur.kickerKey === cur.home) {
+    cur.homeScore += score;
+    if (isTry) { cur.homeConvA++; if (made) cur.homeConvM++; }
+    else        { cur.homePenA++;  if (made) cur.homePenM++;  }
+  } else {
+    cur.awayScore += score;
+    if (isTry) { cur.awayConvA++; if (made) cur.awayConvM++; }
+    else        { cur.awayPenA++;  if (made) cur.awayPenM++;  }
+  }
+
+  document.getElementById('sbHomeScore').textContent = cur.homeScore;
+  document.getElementById('sbAwayScore').textContent = cur.awayScore;
+
+  // Kick flavour
+  const kf = pickIndexed(isTry
+    ? (made ? FLAVOR.convMade : FLAVOR.convMissed)
+    : (made ? FLAVOR.penKickMade : FLAVOR.penKickMissed));
+
+  document.getElementById('flavourWrapper').innerHTML +=
+    `<div class="flavour-box">
+      <div class="d10-label">\uD83C\uDFB2 d10 \u2192 ${kf.roll}</div>
+      <div class="flavour-text">${kf.text}</div>
+    </div>`;
+
+  // Switch possession
+  const sw = switchPossession(cur.kickerKey,
+    cur.kickerKey === cur.home ? cur.away : cur.home, outcome);
+  cur.atkKey = sw.atk; cur.defKey = sw.def;
+  document.getElementById('sbPossession').textContent =
+    `\u{1F3C9} ${ACTIVE_TEAMS[cur.atkKey].name} attacking`;
+
+  cur.btnState = 'advance';
+  updatePhaseBtn();
+}
+
+function doAdvancePhase() {
+  const cur = S.manual.cur;
+  if (cur.phase >= 26) {
+    finishManualMatch();
+    cur.btnState = 'match_done';
+    updatePhaseBtn();
+  } else {
+    cur.phase++;
+    cur.btnState = 'roll_phase';
+    resetPanelSections();
+    refreshManualDisplay();
+  }
+}
+
+function finishManualMatch() {
+  const cur = S.manual.cur;
+  const matchObj = S.matches[cur.matchIdx];
+  matchObj.played = true;
+  matchObj.homeScore = cur.homeScore;
+  matchObj.awayScore = cur.awayScore;
+  matchObj.homeTries = cur.homeTries;
+  matchObj.awayTries = cur.awayTries;
+  matchObj.homeConvA = cur.homeConvA; matchObj.homeConvM = cur.homeConvM;
+  matchObj.homePenA  = cur.homePenA;  matchObj.homePenM  = cur.homePenM;
+  matchObj.awayConvA = cur.awayConvA; matchObj.awayConvM = cur.awayConvM;
+  matchObj.awayPenA  = cur.awayPenA;  matchObj.awayPenM  = cur.awayPenM;
+
+  applyLeague(matchObj);
+  addMatchResultToFeed(matchObj);
+  renderLeagueTable();
+  renderFeed();
+  renderSchedule();
+  updateRoundBadge();
+}
+
+function doNextMatch() {
+  S.currentMatchIdx++;
+  S.manual.cur = null;
+
+  if (S.currentMatchIdx >= S.matches.length) {
+    renderManualPanel();
+    updateMainBtn();
+    return;
+  }
+
+  initManualMatch(S.matches[S.currentMatchIdx]);
+  resetPanelSections();
+  refreshManualDisplay();
+  renderSchedule();
+  updateMainBtn();
+}
+
+/* ═══════════════════════════════════════════
+   DIE ANIMATION
+═══════════════════════════════════════════ */
+function animateDie(element, finalValue) {
+  return new Promise(resolve => {
+    element.classList.add('rolling');
+    let i = 0;
+    const id = setInterval(() => {
+      element.textContent = Math.floor(Math.random() * 20) + 1;
+      if (++i >= 20) {
+        clearInterval(id);
+        element.classList.remove('rolling');
+        element.textContent = finalValue;
+        resolve();
+      }
+    }, 35);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   AUTO MODE
+═══════════════════════════════════════════ */
+function simulateRound() {
+  if (S.currentMatchIdx >= S.matches.length) return;
+  const totalRounds = POOLS[currentPool].singleRoundRobin ? ACTIVE_KEYS.length - 1 : (ACTIVE_KEYS.length - 1) * 2;
+  const currentRound = S.matches[S.currentMatchIdx].round;
+
+  S.feed.unshift({ cls: 'feed-round', text: `Round ${currentRound} of ${totalRounds}` });
+
+  while (S.currentMatchIdx < S.matches.length &&
+         S.matches[S.currentMatchIdx].round === currentRound) {
+
+    const matchObj = S.matches[S.currentMatchIdx];
+    const phaseLog = simulateMatch(matchObj);
+
+    const matchEntries = [];
+    matchEntries.push({ cls: 'feed-match-header',
+      text: `${ACTIVE_TEAMS[matchObj.home].name} vs ${ACTIVE_TEAMS[matchObj.away].name}` });
+
+    phaseLog.forEach(p => {
+      buildFeedEntries(p.phase, p.attackerKey, p.defenderKey, p.outcome, p.kickRes)
+        .forEach(e => matchEntries.push(e));
+    });
+
+    matchEntries.reverse().forEach(e => S.feed.unshift(e));
+    addMatchResultToFeed(matchObj);
+
+    S.currentMatchIdx++;
+  }
+
+  renderAll();
+}
+
+/* ═══════════════════════════════════════════
+   HEADER BUTTON
+═══════════════════════════════════════════ */
+function updateMainBtn() {
+  const btn = document.getElementById('mainActionBtn');
+  if (S.currentMatchIdx >= S.matches.length) {
+    btn.textContent = '\u2713 Season Done';
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = false;
+  const round = S.matches[S.currentMatchIdx].round;
+  btn.textContent = currentMode === 'auto'
+    ? `\u25b6 Simulate Round ${round}`
+    : `\u26a1 Auto Round ${round}`;
+}
+
+function onMainAction() {
+  if (currentMode === 'auto') {
+    simulateRound();
+  } else {
+    S.manual.cur = null;
+    simulateRound();
+    if (S.currentMatchIdx < S.matches.length) {
+      initManualMatch(S.matches[S.currentMatchIdx]);
+      resetPanelSections();
+      refreshManualDisplay();
+    } else {
+      renderManualPanel();
+    }
+  }
+}
+
+function updateRoundBadge() {
+  const badge = document.getElementById('roundBadge');
+  const totalRounds = POOLS[currentPool].singleRoundRobin ? ACTIVE_KEYS.length - 1 : (ACTIVE_KEYS.length - 1) * 2;
+  if (S.currentMatchIdx >= S.matches.length) {
+    badge.textContent = 'Season Complete';
+  } else {
+    badge.textContent = `Round ${S.matches[S.currentMatchIdx].round} / ${totalRounds}`;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MODE
+═══════════════════════════════════════════ */
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeAuto').classList.toggle('active', mode === 'auto');
+  document.getElementById('modeManual').classList.toggle('active', mode === 'manual');
+  renderManualPanel();
+  updateMainBtn();
+}
+
+/* ═══════════════════════════════════════════
+   POOL / RESET
+═══════════════════════════════════════════ */
+function onPoolChange(val) {
+  currentPool = val;
+  selectPool(val);
+}
+
+function onReset() {
+  S.manual.cur = null;
+  initState();
+  if (currentMode === 'manual' && S.matches.length > 0) {
+    initManualMatch(S.matches[0]);
+  }
+  renderAll();
+  if (currentMode === 'manual' && S.manual.cur) {
+    resetPanelSections();
+    refreshManualDisplay();
+  }
+  updateMainBtn();
+}
+
+/* ═══════════════════════════════════════════
+   SAVE / LOAD
+═══════════════════════════════════════════ */
+function openModal() {
+  document.getElementById('exportArea').value = JSON.stringify({
+    currentPool, currentMode,
+    state: {
+      currentMatchIdx: S.currentMatchIdx,
+      matches: S.matches,
+      league: S.league,
+      feed: S.feed.slice(0, 150)
+    }
+  }, null, 2);
+  document.getElementById('importArea').value = '';
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+}
+
+function doImport() {
+  try {
+    const data = JSON.parse(document.getElementById('importArea').value.trim());
+    currentPool = data.currentPool || 'default';
+    currentMode = data.currentMode || 'manual';
+    ACTIVE_TEAMS = POOLS[currentPool].teams;
+    ACTIVE_KEYS = Object.keys(ACTIVE_TEAMS);
+    document.getElementById('poolSelect').value = currentPool;
+    S = {
+      currentMatchIdx: data.state.currentMatchIdx,
+      matches: data.state.matches,
+      league: data.state.league,
+      feed: data.state.feed || [],
+      manual: { cur: null }
+    };
+    setMode(currentMode);
+    renderAll();
+    closeModal();
+  } catch (e) {
+    alert('Invalid JSON: ' + e.message);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   CUSTOM BUILDER
+═══════════════════════════════════════════ */
+const CUSTOM_ACCENT_DEFAULTS = [
+  '#34d399','#f59e0b','#f87171','#60a5fa','#c084fc',
+  '#fb923c','#a3e635','#38bdf8','#e879f9','#fbbf24'
+];
+
+let pendingRatings = null; // { atk, def, kick } — from ratings calculator
+
+function openCustomBuilder(prefill) {
+  // If no rows yet, seed with 4 blank rows
+  const tbody = document.getElementById('customTeamRows');
+  if (tbody.children.length === 0) {
+    for (let i = 0; i < 4; i++) addCustomTeamRow();
+  }
+  // If prefill provided, add/fill next empty row
+  if (prefill) {
+    applyPrefillToNextRow(prefill);
+  }
+  document.getElementById('customError').textContent = '';
+  document.getElementById('customBuilderOverlay').classList.remove('hidden');
+  updateCustomRowCount();
+}
+
+function closeCustomBuilder() {
+  document.getElementById('customBuilderOverlay').classList.add('hidden');
+}
+
+function addCustomTeamRow(prefill) {
+  const tbody = document.getElementById('customTeamRows');
+  if (tbody.children.length >= 10) return;
+
+  const idx = tbody.children.length;
+  const accent = CUSTOM_ACCENT_DEFAULTS[idx % CUSTOM_ACCENT_DEFAULTS.length];
+  const atk = prefill ? prefill.atk : '';
+  const def = prefill ? prefill.def : '';
+  const kick = prefill ? prefill.kick : '';
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="color:var(--muted);font-size:11px;text-align:center">${idx + 1}</td>
+    <td><input class="custom-input" type="text" placeholder="Team name" value=""></td>
+    <td><input class="custom-input custom-num" type="number" min="1" max="10" placeholder="1-10" value="${atk}"></td>
+    <td><input class="custom-input custom-num" type="number" min="1" max="10" placeholder="1-10" value="${def}"></td>
+    <td><input class="custom-input custom-num" type="number" min="1" max="10" placeholder="1-10" value="${kick}"></td>
+    <td><input class="custom-input custom-colour" type="color" value="${accent}"></td>
+    <td><button class="custom-remove" onclick="removeCustomTeamRow(this)">&#xD7;</button></td>
+  `;
+  tbody.appendChild(tr);
+  updateCustomRowCount();
+}
+
+function applyPrefillToNextRow(prefill) {
+  const tbody = document.getElementById('customTeamRows');
+  // Find first row with empty name
+  let targetRow = null;
+  for (const tr of tbody.children) {
+    const nameInput = tr.querySelectorAll('input')[0];
+    if (!nameInput.value.trim()) { targetRow = tr; break; }
+  }
+  if (!targetRow) {
+    // Add new row if space
+    if (tbody.children.length < 10) addCustomTeamRow(prefill);
+    return;
+  }
+  const inputs = targetRow.querySelectorAll('input');
+  inputs[1].value = prefill.atk;
+  inputs[2].value = prefill.def;
+  inputs[3].value = prefill.kick;
+}
+
+function removeCustomTeamRow(btn) {
+  const tr = btn.closest('tr');
+  tr.remove();
+  // Renumber rows
+  const tbody = document.getElementById('customTeamRows');
+  Array.from(tbody.children).forEach((row, i) => {
+    row.children[0].textContent = i + 1;
+  });
+  updateCustomRowCount();
+}
+
+function updateCustomRowCount() {
+  const count = document.getElementById('customTeamRows').children.length;
+  document.getElementById('customRowCount').textContent = `${count} / 10 teams`;
+  document.getElementById('customAddRowBtn').disabled = count >= 10;
+}
+
+function launchCustomSeason() {
+  const tbody = document.getElementById('customTeamRows');
+  const rows = Array.from(tbody.children);
+  const errorEl = document.getElementById('customError');
+  errorEl.textContent = '';
+
+  if (rows.length < 4) {
+    errorEl.textContent = 'Need at least 4 teams to run a season.';
+    return;
+  }
+
+  const teams = {};
+  for (let i = 0; i < rows.length; i++) {
+    const inputs = rows[i].querySelectorAll('input');
+    const name = inputs[0].value.trim();
+    const atk = parseInt(inputs[1].value, 10);
+    const def = parseInt(inputs[2].value, 10);
+    const kick = parseInt(inputs[3].value, 10);
+    const accent = inputs[4].value;
+
+    if (!name) { errorEl.textContent = `Row ${i + 1}: team name cannot be empty.`; return; }
+    if (isNaN(atk) || atk < 1 || atk > 10) { errorEl.textContent = `Row ${i + 1}: ATK must be 1–10.`; return; }
+    if (isNaN(def) || def < 1 || def > 10) { errorEl.textContent = `Row ${i + 1}: DEF must be 1–10.`; return; }
+    if (isNaN(kick) || kick < 1 || kick > 10) { errorEl.textContent = `Row ${i + 1}: KICK must be 1–10.`; return; }
+
+    const key = 'custom_' + i;
+    teams[key] = { name, atk, def, kick, accent };
+  }
+
+  if (rows.length % 2 !== 0) {
+    errorEl.textContent = 'Team count must be even (Berger circle requires even number). Add or remove one team.';
+    return;
+  }
+
+  const poolName = document.getElementById('customPoolName').value.trim() || 'Custom League';
+  const homeAway = document.getElementById('customHomeAway').checked;
+
+  POOLS.custom = {
+    name: poolName,
+    singleRoundRobin: !homeAway,
+    teams
+  };
+
+  // Show the custom pool option and select it
+  const optEl = document.getElementById('customPoolOption');
+  optEl.textContent = poolName;
+  optEl.classList.remove('hidden');
+  document.getElementById('poolSelect').value = 'custom';
+
+  closeCustomBuilder();
+  selectPool('custom');
+}
+
+/* ═══════════════════════════════════════════
+   RATINGS CALCULATOR
+═══════════════════════════════════════════ */
+function toggleRatePanel() {
+  const panel = document.getElementById('ratePanel');
+  panel.classList.toggle('hidden');
+}
+
+function calcATK(tfg) {
+  if (tfg >= 5.0) return 8;
+  if (tfg >= 3.5) return 7;
+  if (tfg >= 2.5) return 6;
+  if (tfg >= 1.5) return 5;
+  return 4;
+}
+
+function calcDEF(tag) {
+  if (tag < 2.0) return 8;
+  if (tag < 2.5) return 7;
+  if (tag < 3.5) return 6;
+  if (tag < 4.5) return 5;
+  if (tag < 5.5) return 4;
+  return 3;
+}
+
+function calcKICK(kpg) {
+  if (kpg >= 13) return 8;
+  if (kpg >= 10) return 7;
+  if (kpg >= 7)  return 6;
+  if (kpg >= 4)  return 5;
+  return 4;
+}
+
+function onRateKickCalc() {
+  const pf = parseFloat(document.getElementById('calcPF').value);
+  const tf = parseFloat(document.getElementById('calcTF').value);
+  const g  = parseFloat(document.getElementById('calcG').value);
+  const resEl = document.getElementById('calcKPGResult');
+
+  if (!isNaN(pf) && !isNaN(tf) && !isNaN(g) && g > 0) {
+    const kpg = (pf - tf * 5) / g;
+    const display = Math.max(0, kpg).toFixed(2);
+    resEl.textContent = display;
+    document.getElementById('rateKPG').value = display;
+  } else {
+    resEl.textContent = '—';
+  }
+}
+
+function doCalcRatings() {
+  const tfg = parseFloat(document.getElementById('rateTF').value);
+  const tag = parseFloat(document.getElementById('rateTA').value);
+  const kpg = parseFloat(document.getElementById('rateKPG').value);
+
+  if (isNaN(tfg) || isNaN(tag) || isNaN(kpg)) {
+    alert('Please enter values for TF/g, TA/g and Kick pts/g.');
+    return;
+  }
+
+  const atk  = calcATK(tfg);
+  const def  = calcDEF(tag);
+  const kick = calcKICK(kpg);
+
+  document.getElementById('rateResATK').textContent  = atk;
+  document.getElementById('rateResDEF').textContent  = def;
+  document.getElementById('rateResKICK').textContent = kick;
+  document.getElementById('rateResultBoxes').classList.remove('hidden');
+
+  pendingRatings = { atk, def, kick };
+}
+
+function applyRatingsToBuilder() {
+  if (!pendingRatings) return;
+  openCustomBuilder(pendingRatings);
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+(function boot() {
+  initState();
+  renderAll();
+  if (currentMode === 'manual' && S.matches.length > 0) {
+    initManualMatch(S.matches[0]);
+    resetPanelSections();
+    refreshManualDisplay();
+  }
+  updateMainBtn();
+})();
+</script>
+</body>
+</html>
